@@ -15,8 +15,8 @@ public:
     bool is_order = true;
     int score = 0;
 	int calculate_score();
-	int minimax_chaos(int depth, bool is_max);
-	int minimax_order(int depth, bool is_max);
+	int minimax_chaos(int depth, bool is_max, int alpha, int beta);
+	int minimax_order(int depth, bool is_max, int alpha, int beta);
     void execute_order_move(int x1, int y1, int x2, int y2);
     void execute_chaos_move(int x1, int y1, int color);
 	void chaos_respond_move(string prev_move, int color);
@@ -25,6 +25,17 @@ public:
 	vector <pair <pair <int, int>, pair <int, int>>> generate_valid_order_moves();
 	vector <pair <int, int>> generate_valid_chaos_moves();
 };
+
+void plyr::print_board() {
+	for (int i = 0; i < 7; i++) 
+	{
+		for (int j = 0; j < 7; j++) 
+		{
+			cout << board[i][j] << ' ';
+		}
+		cout << '\n';
+	}
+}
 
 void plyr::execute_chaos_move(int x1, int y1, int color) {
 	board[x1][y1] = color;
@@ -54,7 +65,11 @@ void plyr::order_respond_move(string prev_move)
 						   valid_moves[i].first.second,
 						   valid_moves[i].second.first,
 						   valid_moves[i].second.second);
-		int best_sce = minimax_chaos(1, false);
+		int best_sce = minimax_chaos(1, false, INT_MIN, INT_MAX);
+		execute_order_move(valid_moves[i].second.first,
+						   valid_moves[i].second.second,
+						   valid_moves[i].first.first,
+						   valid_moves[i].first.second);
 		if (best_sce > best_score)
 		{
 			best_score = best_sce; 
@@ -63,10 +78,6 @@ void plyr::order_respond_move(string prev_move)
 			best_x2 = valid_moves[i].second.first;
 			best_y2 = valid_moves[i].second.second;
 		}
-		execute_order_move(valid_moves[i].second.first,
-						   valid_moves[i].second.second,
-						   valid_moves[i].first.first,
-						   valid_moves[i].first.second);
 	}
 	execute_order_move(best_x1, best_y1, best_x2, best_y2);
 	cout << char(best_x1 + 'A') << char(best_y1 + 'a') << char(best_x2 + 'A') << char(best_y2 + 'a') << endl;
@@ -83,20 +94,20 @@ void plyr::chaos_respond_move(string prev_move, int color)
 	for (int i = 0; i < n_valid_moves; i++) 
 	{
 		execute_chaos_move(valid_moves[i].first, valid_moves[i].second, color);
-		int max_score = minimax_order(1, false);
+		int max_score = minimax_order(1, false, INT_MIN, INT_MAX);
+		execute_chaos_move(valid_moves[i].first, valid_moves[i].second, 0);
 		if (max_score > best_score)
 		{
 			best_x1 = valid_moves[i].first;
 			best_y1 = valid_moves[i].second;
 			best_score = max_score;
 		}
-		execute_chaos_move(valid_moves[i].first, valid_moves[i].second, 0);
 	}
 	execute_chaos_move(best_x1, best_y1, color);
 	cout << char(best_x1 + 'A') << char(best_y1 + 'a') << endl;
 }
 
-int plyr::minimax_chaos(int depth, bool is_max)
+int plyr::minimax_chaos(int depth, bool is_max, int alpha, int beta)
 {
 	if (depth == max_depth) {
 		return calculate_score();
@@ -112,20 +123,34 @@ int plyr::minimax_chaos(int depth, bool is_max)
 			
 		for (int i = 0; i < n_valid_moves; i++) 
 		{
-			for (int color = 1; color <= 7; color++) {
+			bool can_be_maxmin = false;
+			for (int color = 1; color <= 7; color++) 
+			{
 				execute_chaos_move(valid_moves[i].first, valid_moves[i].second, color);
-				int score = minimax_order(depth + 1, !is_max);
-				if (is_max) {
-					if (score > best_score)
-						best_score = score;
-				}
-				else {
-					if (score < best_score)
-						best_score = score;
-				}
-				
+				int score = minimax_order(depth + 1, !is_max, alpha, beta);
 				execute_chaos_move(valid_moves[i].first, valid_moves[i].second, 0);
+				if (is_max) 
+				{
+					best_score = max(score, best_score);
+					alpha = max(best_score, alpha);
+					if (beta <= alpha) 
+					{
+						can_be_maxmin = true;
+						break;
+					}
+				}
+				else 
+				{
+					best_score = min(best_score, score);
+					beta = min(beta, best_score);
+					if (beta <= alpha)
+					{
+						can_be_maxmin = true;
+						break;
+					}
+				}
 			}
+			if (can_be_maxmin) break;
 		}
 //		cout << "DEPTH " << depth << ":\n";
 //		cout << best_score << "\n"; 
@@ -134,13 +159,13 @@ int plyr::minimax_chaos(int depth, bool is_max)
 }
 
 
-int plyr::minimax_order(int depth, bool is_max)
+int plyr::minimax_order(int depth, bool is_max, int alpha, int beta)
 {
 	if (depth == max_depth) {
 		return calculate_score();
 	}
 	else {
-	vector <pair <pair <int, int>, pair <int, int>>> valid_moves = generate_valid_order_moves();
+		vector <pair <pair <int, int>, pair <int, int>>> valid_moves = generate_valid_order_moves();
 		int n_valid_moves = valid_moves.size();
 		int best_score;
 		if (is_max)
@@ -154,23 +179,23 @@ int plyr::minimax_order(int depth, bool is_max)
 							   valid_moves[i].first.second,
 							   valid_moves[i].second.first,
 							   valid_moves[i].second.second);
-			int score = minimax_chaos(depth + 1, !is_max);
-			if (is_max) 
-			{
-				if (score > best_score)
-					best_score = score;
-			}
-			else 
-			{
-				if (score < best_score) 
-				{
-					best_score = score;
-				}
-			}
+			int score = minimax_chaos(depth + 1, !is_max, alpha, beta);
 			execute_order_move(valid_moves[i].second.first,
 							   valid_moves[i].second.second,
 							   valid_moves[i].first.first,
 							   valid_moves[i].first.second);
+			if (is_max) 
+			{
+				best_score = max(score, best_score);
+				alpha = max(best_score, alpha);
+				if (beta <= alpha) break;
+			}
+			else 
+			{
+				best_score = min(best_score, score);
+				beta = min(beta, best_score);
+				if (beta <= alpha) break;
+			}
 		}
 //		cout << "DEPTH " << depth << ":\n";
 //		cout << best_score << "\n"; 
