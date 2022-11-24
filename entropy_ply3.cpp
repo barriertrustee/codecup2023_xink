@@ -2,9 +2,11 @@
 #include <vector>
 #include <utility>
 #include <time.h>
+#include <cstring>
+#include <algorithm>
 #define ll long long
 #define ld long double
-#define max_depth 2
+#define max_depth 3
 using namespace std;
 const ll mod = 1e9 + 7;
 
@@ -13,7 +15,9 @@ class plyr
 public:
     int board[7][7] = {};
     bool is_order = true;
-    int score = 0;
+    bool better_order_move(pair <pair <int, int>, pair <int, int>> move1, pair <pair <int, int>, pair <int, int>> move2);
+    bool worse_order_move(pair <pair <int, int>, pair <int, int>> move1, pair <pair <int, int>, pair <int, int>> move2);
+	int score = 0;
 	int calculate_score();
 	int minimax_chaos(int depth, bool is_max, int alpha, int beta);
 	int minimax_order(int depth, bool is_max, int alpha, int beta);
@@ -50,6 +54,26 @@ void plyr::execute_order_move(int x1, int y1, int x2, int y2)
 	}
 }
 
+bool plyr::better_order_move(pair <pair <int, int>, pair <int, int>> move1, pair <pair <int, int>, pair <int, int>> move2) {
+	execute_order_move(move1.first.first, move1.first.second, move1.second.first, move1.second.second);
+	int score_move1 = calculate_score();
+	execute_order_move(move1.second.first, move1.second.second, move1.first.first, move1.first.second);
+	execute_order_move(move2.first.first, move2.first.second, move2.second.first, move2.second.second);
+	int score_move2 = calculate_score();
+	execute_order_move(move2.second.first, move2.second.second, move2.first.first, move2.first.second);
+	return (score_move1 > score_move2);
+}
+
+bool plyr::worse_order_move(pair <pair <int, int>, pair <int, int>> move1, pair <pair <int, int>, pair <int, int>> move2) {
+	execute_order_move(move1.first.first, move1.first.second, move1.second.first, move1.second.second);
+	int score_move1 = calculate_score();
+	execute_order_move(move1.second.first, move1.second.second, move1.first.first, move1.first.second);
+	execute_order_move(move2.first.first, move2.first.second, move2.second.first, move2.second.second);
+	int score_move2 = calculate_score();
+	execute_order_move(move2.second.first, move2.second.second, move2.first.first, move2.first.second);
+	return (score_move1 < score_move2);
+}
+
 void plyr::order_respond_move(string prev_move) 
 {
 	execute_chaos_move(prev_move[1] - 'A', prev_move[2] - 'a', prev_move[0] - '0');
@@ -58,25 +82,30 @@ void plyr::order_respond_move(string prev_move)
 	best_x1 = valid_moves[0].first.first, 
 	best_y1 = valid_moves[0].first.second, 
 	best_x2 = valid_moves[0].first.first, 
-	best_y2 = valid_moves[0].first.second;
-	for (int i = 0; i < n_valid_moves; i++) 
+	best_y2 = valid_moves[0].first.second,
+	alpha = INT_MIN, beta = INT_MAX;
+	for (int i = 0; i < n_valid_moves; i++)
 	{
 		execute_order_move(valid_moves[i].first.first,
 						   valid_moves[i].first.second,
 						   valid_moves[i].second.first,
 						   valid_moves[i].second.second);
-		int best_sce = minimax_chaos(1, false, INT_MIN, INT_MAX);
+		int best_sce = minimax_chaos(1, false, alpha, beta);
 		execute_order_move(valid_moves[i].second.first,
 						   valid_moves[i].second.second,
 						   valid_moves[i].first.first,
 						   valid_moves[i].first.second);
 		if (best_sce > best_score)
 		{
-			best_score = best_sce; 
+			best_score = best_sce;
 			best_x1 = valid_moves[i].first.first; 
 			best_y1 = valid_moves[i].first.second; 
 			best_x2 = valid_moves[i].second.first;
 			best_y2 = valid_moves[i].second.second;
+		}
+		alpha = max(best_score, alpha);
+		if (beta <= alpha) {
+			break;
 		}
 	}
 	execute_order_move(best_x1, best_y1, best_x2, best_y2);
@@ -90,17 +119,22 @@ void plyr::chaos_respond_move(string prev_move, int color)
 	int n_valid_moves = valid_moves.size(),
 	best_x1 = valid_moves[0].first, 
 	best_y1 = valid_moves[0].second, 
-	best_score = INT_MIN;
+	best_score = INT_MIN,
+	alpha = INT_MIN, beta = INT_MAX;
 	for (int i = 0; i < n_valid_moves; i++) 
 	{
 		execute_chaos_move(valid_moves[i].first, valid_moves[i].second, color);
-		int max_score = minimax_order(1, false, INT_MIN, INT_MAX);
+		int max_score = minimax_order(1, false, alpha, beta);
 		execute_chaos_move(valid_moves[i].first, valid_moves[i].second, 0);
 		if (max_score > best_score)
 		{
 			best_x1 = valid_moves[i].first;
 			best_y1 = valid_moves[i].second;
 			best_score = max_score;
+		}
+		alpha = max(alpha, best_score);
+		if (beta <= alpha) {
+			break;
 		}
 	}
 	execute_chaos_move(best_x1, best_y1, color);
@@ -333,7 +367,7 @@ int main()
 {
     //	ios_base::sync_with_stdio(0); cin.tie(0); cout.tie(0);
     plyr player1;
-    memset(player1.board, 0, sizeof player1.board);
+    memset(player1.board, 0, sizeof(player1.board));
 	// Recieve and respond to opponent's move
 	string input;
 	while (cin >> input && input != "Quit") 
